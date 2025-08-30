@@ -3,11 +3,7 @@ import { ReactNode } from 'react';
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="border-b py-4">
-        <div className="container mx-auto px-4">
-          <h1 className="text-2xl font-bold">Polling App</h1>
-        </div>
-      </header>
+      {/* Header removed to prevent duplication with root layout */}
       <main className="flex-1">
         {children}
       </main>
