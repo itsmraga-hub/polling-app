@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/navigation";
+import { AuthProvider } from "@/context/auth-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,17 +29,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="min-h-screen flex flex-col">
-          <Navigation />
-          <main className="flex-1">
-            {children}
-          </main>
-          <footer className="border-t py-4 text-center text-sm text-muted-foreground">
-            <div className="container mx-auto px-4">
-              © {new Date().getFullYear()} Polling App. All rights reserved.
-            </div>
-          </footer>
-        </div>
+        <AuthProvider>
+          <div className="min-h-screen flex flex-col">
+            <Navigation />
+            <main className="flex-1">
+              {children}
+            </main>
+            <footer className="border-t py-4 text-center text-sm text-muted-foreground">
+              <div className="container mx-auto px-4">
+                © {new Date().getFullYear()} Polling App. All rights reserved.
+              </div>
+            </footer>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

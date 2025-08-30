@@ -1,23 +1,59 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/context/auth-context';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Profile() {
-  // Placeholder user data
+  const { user } = useAuth();
+  const supabase = createClient();
+  
   const [userData, setUserData] = useState({
-    name: 'John Doe',
-    email: 'john.doe@example.com',
+    name: '',
+    email: '',
     avatar: ''
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user) {
+      setUserData({
+        name: user.user_metadata?.name || '',
+        email: user.email || '',
+        avatar: user.user_metadata?.avatar_url || ''
+      });
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Update profile logic will go here
-    console.log('Profile update attempted');
+    setIsLoading(true);
+    setMessage(null);
+    
+    try {
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          name: userData.name,
+          avatar_url: userData.avatar
+        }
+      });
+      
+      if (error) {
+        setMessage({ text: error.message, type: 'error' });
+      } else {
+        setMessage({ text: 'Profile updated successfully', type: 'success' });
+      }
+    } catch (err) {
+      setMessage({ text: 'An unexpected error occurred', type: 'error' });
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -38,6 +74,11 @@ export default function Profile() {
           </div>
         </CardHeader>
         <CardContent>
+          {message && (
+            <div className={`p-3 mb-4 rounded ${message.type === 'success' ? 'bg-green-100 border border-green-400 text-green-700' : 'bg-red-100 border border-red-400 text-red-700'}`}>
+              {message.text}
+            </div>
+          )}
           <form onSubmit={handleUpdateProfile} className="space-y-4">
             <div className="space-y-2">
               <label htmlFor="name" className="text-sm font-medium">Name</label>
@@ -67,7 +108,9 @@ export default function Profile() {
                 placeholder="https://example.com/avatar.jpg"
               />
             </div>
-            <Button type="submit">Update Profile</Button>
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? 'Updating...' : 'Update Profile'}
+            </Button>
           </form>
         </CardContent>
         <CardFooter>

@@ -1,17 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useProtectedRoute } from '@/lib/auth-utils';
+import { useAuth } from '@/context/auth-context';
 
 export default function CreatePollPage() {
+  // Protect this route - redirect to sign-in if not authenticated
+  const { user, isLoading } = useProtectedRoute();
   const router = useRouter();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [options, setOptions] = useState(['', '']);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleAddOption = () => {
     setOptions([...options, '']);
@@ -30,7 +35,7 @@ export default function CreatePollPage() {
     setOptions(newOptions);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form
@@ -39,11 +44,25 @@ export default function CreatePollPage() {
       return;
     }
     
-    // In a real app, this would send the poll data to an API
-    console.log('Creating poll:', { title, description, options });
+    setIsSubmitting(true);
     
-    // Redirect to polls page
-    router.push('/polls');
+    try {
+      // In a real app, this would send the poll data to an API with the user's ID
+      console.log('Creating poll:', { 
+        title, 
+        description, 
+        options,
+        userId: user?.id // Include the user ID from auth context
+      });
+      
+      // Redirect to polls page
+      router.push('/polls');
+    } catch (error) {
+      console.error('Error creating poll:', error);
+      alert('Failed to create poll. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -112,7 +131,13 @@ export default function CreatePollPage() {
               </Button>
             </div>
             
-            <Button type="submit" className="w-full">Create Poll</Button>
+            <Button 
+              type="submit" 
+              className="w-full" 
+              disabled={isSubmitting || isLoading}
+            >
+              {isSubmitting ? 'Creating...' : 'Create Poll'}
+            </Button>
           </form>
         </CardContent>
       </Card>

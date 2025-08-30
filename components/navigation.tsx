@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -10,10 +9,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useAuth } from '@/context/auth-context';
 
 export default function Navigation() {
   const pathname = usePathname();
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // This would be determined by auth state
+  const router = useRouter();
+  const { user, signOut } = useAuth();
 
   const isActive = (path: string) => {
     return pathname === path || pathname?.startsWith(`${path}/`);
@@ -34,7 +35,7 @@ export default function Navigation() {
                 Polls
               </Link>
             </li>
-            {isLoggedIn && (
+            {user && (
               <li>
                 <Link 
                   href="/polls/create" 
@@ -48,12 +49,12 @@ export default function Navigation() {
         </nav>
         
         <div className="flex items-center space-x-4">
-          {isLoggedIn ? (
+          {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
                   <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-                    U
+                    {user.user_metadata?.name?.[0] || user.email?.[0] || 'U'}
                   </div>
                 </Button>
               </DropdownMenuTrigger>
@@ -61,7 +62,10 @@ export default function Navigation() {
                 <DropdownMenuItem asChild>
                   <Link href="/auth/profile">Profile</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setIsLoggedIn(false)}>
+                <DropdownMenuItem onClick={async () => {
+                  await signOut();
+                  router.push('/');
+                }}>
                   Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>

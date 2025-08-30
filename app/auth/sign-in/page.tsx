@@ -1,23 +1,60 @@
 'use client';
 
-import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { useAuth } from '@/context/auth-context';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
+
+const formSchema = z.object({
+  email: z.string().email('Invalid email format'),
+  password: z.string().min(6, 'Password must be at least 6 characters')
+});
+
+type FormData = z.infer<typeof formSchema>;
 
 export default function SignIn() {
   const router = useRouter();
+  const { signIn, user } = useAuth();
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      email: '',
+      password: ''
+    }
+  });
   
-  // This is a placeholder for the actual authentication logic
-  const handleSignIn = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Authentication logic will go here
-    console.log('Sign in attempted');
-    // Redirect to polls page after sign in
-    router.push('/polls');
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (user) {
+      router.push('/polls');
+    }
+  }, [user, router]);
+  
+  const onSubmit = async (data: FormData) => {
+    setError(null);
+    
+    try {
+      const { error } = await signIn(data.email, data.password);
+      
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      
+      // Successful login will trigger the useEffect above to redirect
+    } catch (err) {
+      setError('An unexpected error occurred');
+      console.error(err);
+    }
   };
 
   return (
@@ -30,17 +67,55 @@ export default function SignIn() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <FormLabel htmlFor="email">Email</FormLabel>
-              <Input id="email" type="email" placeholder="email@example.com" required />
-            </div>
-            <div className="space-y-2">
-              <FormLabel htmlFor="password">Password</FormLabel>
-              <Input id="password" type="password" required />
-            </div>
-            <Button type="submit" className="w-full">Sign In</Button>
-          </form>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                  {error}
+                </div>
+              )}
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="email@example.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-center">
