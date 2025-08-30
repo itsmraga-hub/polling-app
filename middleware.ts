@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
   );
   
   if (isProtectedRoute) {
-    const supabase = createClient();
+    const supabase = await createClient();
     const { data: { session } } = await supabase.auth.getSession();
     
     // If no session exists, redirect to sign-in page

@@ -8,15 +8,35 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useProtectedRoute } from '@/lib/auth-utils';
 import { useAuth } from '@/context/auth-context';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import * as z from 'zod';
+import { clientPollsApi } from '@/lib/supabase/polls';
+
+// Define form schema with Zod
+const formSchema = z.object({
+  title: z.string().min(1, 'Title is required'),
+  description: z.string().min(1, 'Description is required'),
+  options: z.array(z.string().min(1, 'Option is required')).min(2, 'At least 2 options are required')
+});
 
 export default function CreatePollPage() {
   // Protect this route - redirect to sign-in if not authenticated
   const { user, isLoading } = useProtectedRoute();
   const router = useRouter();
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
   const [options, setOptions] = useState(['', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Initialize form
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      title: '',
+      description: '',
+      options: ['', '']
+    }
+  });
 
   const handleAddOption = () => {
     setOptions([...options, '']);
@@ -35,28 +55,29 @@ export default function CreatePollPage() {
     setOptions(newOptions);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate form
-    if (!title.trim() || !description.trim() || options.some(opt => !opt.trim())) {
-      alert('Please fill in all fields and provide at least 2 options');
-      return;
-    }
-    
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
     setIsSubmitting(true);
+    setSuccessMessage(null);
     
     try {
-      // In a real app, this would send the poll data to an API with the user's ID
-      console.log('Creating poll:', { 
-        title, 
-        description, 
-        options,
-        userId: user?.id // Include the user ID from auth context
-      });
+      // Create poll in Supabase using our client API
+      const { data, error } = await clientPollsApi.createPoll(
+        values.title,
+        values.description,
+        values.options.filter(option => option.trim() !== '')
+      );
       
-      // Redirect to polls page
-      router.push('/polls');
+      if (error) {
+        throw error;
+      }
+      
+      // Show success message
+      setSuccessMessage('Poll created successfully!');
+      
+      // Wait a moment before redirecting
+      setTimeout(() => {
+        router.push('/polls');
+      }, 2000);
     } catch (error) {
       console.error('Error creating poll:', error);
       alert('Failed to create poll. Please try again.');
@@ -75,70 +96,89 @@ export default function CreatePollPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <FormLabel htmlFor="title">Poll Title</FormLabel>
-              <Input 
-                id="title" 
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., What's your favorite programming language?"
-                required
-              />
+          {successMessage && (
+            <div className="p-3 mb-4 bg-green-100 border border-green-400 text-green-700 rounded">
+              {successMessage}
             </div>
-            
-            <div className="space-y-2">
-              <FormLabel htmlFor="description">Description</FormLabel>
-              <Input 
-                id="description" 
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Provide some context for your poll"
-                required
+          )}
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="title"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Poll Title</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="e.g., What's your favorite programming language?"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
-            
-            <div className="space-y-4">
-              <FormLabel>Poll Options</FormLabel>
-              {options.map((option, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <Input 
-                    value={option}
-                    onChange={(e) => handleOptionChange(index, e.target.value)}
-                    placeholder={`Option ${index + 1}`}
-                    required
-                  />
-                  {options.length > 2 && (
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="icon"
-                      onClick={() => handleRemoveOption(index)}
-                    >
-                      ✕
-                    </Button>
-                  )}
-                </div>
-              ))}
+              
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Input 
+                        placeholder="Provide some context for your poll"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <div className="space-y-4">
+                <FormLabel>Poll Options</FormLabel>
+                {options.map((option, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Input 
+                      value={option}
+                      onChange={(e) => handleOptionChange(index, e.target.value)}
+                      placeholder={`Option ${index + 1}`}
+                      required
+                    />
+                    {options.length > 2 && (
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="icon"
+                        onClick={() => handleRemoveOption(index)}
+                      >
+                        ✕
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={handleAddOption}
+                  className="w-full"
+                >
+                  Add Option
+                </Button>
+              </div>
               
               <Button 
-                type="button" 
-                variant="outline" 
-                onClick={handleAddOption}
-                className="w-full"
+                type="submit" 
+                className="w-full" 
+                disabled={isSubmitting || isLoading}
               >
-                Add Option
+                {isSubmitting ? 'Creating...' : 'Create Poll'}
               </Button>
-            </div>
-            
-            <Button 
-              type="submit" 
-              className="w-full" 
-              disabled={isSubmitting || isLoading}
-            >
-              {isSubmitting ? 'Creating...' : 'Create Poll'}
-            </Button>
-          </form>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
